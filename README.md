@@ -105,6 +105,14 @@ This project demonstrates several production-grade design decisions:
 
 ---
 
+## 📌 Design Tradeoffs
+
+- Chose idempotent consumer pattern over exactly-once semantics to simplify system guarantees
+- Implemented DLQ instead of blocking retries to isolate failures and maintain throughput
+- Used config-driven retry behavior to allow flexible tuning without redeployment
+
+---
+
 ## ▶️ Running the System
 
 ```bash
