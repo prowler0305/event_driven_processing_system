@@ -96,20 +96,21 @@ This project demonstrates several production-grade design decisions:
 
 ---
 
+## 📌 Design Tradeoffs
+
+- Chose idempotent consumer pattern over exactly-once semantics to simplify system guarantees
+- Implemented DLQ instead of blocking retries to isolate failures and maintain throughput
+- Used config-driven retry behavior to allow flexible tuning without redeployment
+- Prioritized failure isolation and observability over strict processing guarantees
+
+---
+
 ## 🔍 Example Use Cases
 
 - High-throughput order processing systems
 - Event-driven microservices architectures
 - Reliable message processing pipelines
 - Systems requiring failure recovery and auditability
-
----
-
-## 📌 Design Tradeoffs
-
-- Chose idempotent consumer pattern over exactly-once semantics to simplify system guarantees
-- Implemented DLQ instead of blocking retries to isolate failures and maintain throughput
-- Used config-driven retry behavior to allow flexible tuning without redeployment
 
 ---
 
