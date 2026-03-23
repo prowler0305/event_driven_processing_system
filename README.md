@@ -23,14 +23,14 @@ The design emphasizes **reliability under failure conditions**, not just happy-p
 
 ```mermaid
 flowchart TD
-    A[Client] --> B[Order API]
-    B --> C[(Kafka Topic: orders)]
-    C --> D[Order Processor]
+    A["Client"] --> B["Order API"]
+    B --> C[("Kafka Topic: orders")]
+    C --> D["Order Processor"]
 
-    D -->|Success| E[Process Order]
-    D -->|Duplicate Event| F[Skip (Idempotent Handling)]
-    D -->|Failure| G[Retry Logic]
-    G -->|Max Retries Exceeded| H[(DLQ: orders.dlq)]
+    D -->|Success| E["Process Order"]
+    D -->|Duplicate Event| F["Skip (Idempotent Handling)"]
+    D -->|Failure| G["Retry Logic"]
+    G -->|Max Retries Exceeded| H["DLQ: orders.dlq"]
 ```
 
 ---
