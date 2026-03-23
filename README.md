@@ -1,254 +1,148 @@
-# Event Driven Order Processing System
+# Event-Driven Order Processing System
 
-## Overview
+A production-style event-driven microservices system demonstrating reliable, scalable order processing using Kafka.
 
-This project demonstrates a **simple event-driven architecture** using **Apache Kafka**, **Docker**, and **Python services**.
-
-Instead of processing orders synchronously, the API publishes events to Kafka which are then processed by a downstream service.
-
-This architecture improves:
-
-- scalability
-- decoupling of services
-- fault tolerance
+This project focuses on **resiliency, fault tolerance, and real-world distributed system patterns**, including idempotent processing, retry strategies, and dead-letter queue (DLQ) handling.
 
 ---
 
-# Architecture
-Client --> Order API --> Kafka (orders topic) --> Order Processor --> Database
+## 🚀 Overview
 
+This system simulates an order processing pipeline:
 
-### Components
+1. Order API receives incoming requests
+2. Events are published to Kafka
+3. Order Processor consumes and processes events
+4. Failures are retried and eventually routed to a DLQ
 
-#### Order API
-
-- Receives order requests
-- Generates a unique `order_id`
-- Publishes order events to Kafka
-
-#### Kafka
-
-- Acts as the event streaming platform
-- Stores order events temporarily
-- Allows downstream consumers to process them asynchronously
-
-#### Order Processor
-
-- Consumes order events from Kafka
-- Processes the order
-- Stores the result in the database
+The design emphasizes **reliability under failure conditions**, not just happy-path processing.
 
 ---
 
-# Kafka Design Decisions
+## 🏗️ Architecture
 
-## Topic Strategy
+```mermaid
+flowchart TD
+    A[Client] --> B[Order API]
+    B --> C[(Kafka Topic: orders)]
+    C --> D[Order Processor]
 
-For this portfolio project, a **single Kafka topic (`orders`)** is used.
-
-Because the expected message volume is low, a single topic keeps the system simple and easy to understand.
-
-In a production system, it would be better to separate topics by event type, for example:
-
-- `orders-created`
-- `payments-processed`
-- `orders-shipped`
-
-Benefits of multiple topics include:
-
-- higher throughput
-- clearer separation of responsibilities
-- easier scaling of individual services
-
----
-
-## Partition Key
-
-The partition key chosen is **`order_id`**.
-
-Reasons:
-
-- Each order has a unique identifier
-- Ensures events for the same order go to the same partition
-- Avoids duplicates that could occur with fields such as:
-
-    - `customer_id` (customers may place multiple orders)
-    - `product_id` (many orders may contain the same product)
-
-Random partition keys could work, but most systems already generate a unique `order_id`, so using it is the most natural and reliable option.
-
----
-
-## Replication Factor
-
-For this project:
-
-```replication.factor = 1```
-
-
-This is because the system currently runs **only one Kafka broker locally**.
-
-In production environments, a **replication factor of at least 3** is typically used to provide fault tolerance and high availability.
-
----
-
-## Data Retention
-
-For an ordering system, **short retention periods are generally preferred** because order events may contain sensitive customer information.
-
-Kafka should be used primarily as an **event transport layer**, not long-term storage.
-
-Long-term records should instead be stored in a secure database.
-
----
-
-# Running the System
-
-Start the environment with Docker Compose:
-
-```bash
-docker compose up
+    D -->|Success| E[Process Order]
+    D -->|Duplicate Event| F[Skip (Idempotent Handling)]
+    D -->|Failure| G[Retry Logic]
+    G -->|Max Retries Exceeded| H[(DLQ: orders.dlq)]
 ```
 
-This will start:
+---
 
-* Kafka
+## ⚙️ Tech Stack
 
-* Zookeeper
-
-* Order API
-
-* Order Processor
-
-# Technologies Used
-
-* Apache Kafka
-
-* Docker / Docker Compose
-
-* Python
-
-* FastAPI
-
-* kafka-python client
-
-# Future Improvements
-
-This project demonstrates the core concepts of an event-driven architecture, but several improvements would be implemented in a production environment.
-
-## Schema Registry
-
-Introduce a schema management system such as **Confluent Schema Registry** with **Avro or Protobuf**.
-
-Benefits:
-
-- enforce message structure
-- prevent producers from sending invalid data
-- enable safe schema evolution
-
-Example improvements:
-
-- versioned schemas
-- backward compatibility validation
-- consumer schema negotiation
+- Python (Flask)
+- Apache Kafka
+- Docker / Docker Compose
+- REST APIs
+- Structured Logging (in progress)
 
 ---
 
-## Dead Letter Queue (DLQ)
+## ✅ Implemented Capabilities
 
-Introduce a **Dead Letter Queue topic** (e.g., `orders-dlq`) to capture messages that fail processing.
+### Event-Driven Processing
+- Decoupled producer/consumer architecture using Kafka
+- Asynchronous processing of order events
 
-Reasons:
+### Idempotent Event Handling
+- Duplicate event detection using event IDs
+- Safe reprocessing without data corruption
 
-- prevents message loss
-- allows investigation of failed events
-- avoids blocking the consumer pipeline
+### Retry Strategy
+- Configurable retry logic for transient failures
+- Exponential backoff approach (context-aware)
 
-Example workflow:
-orders topic → Order Processor → ├── success → database | failure → orders-dlq |
+### Dead Letter Queue (DLQ)
+- Failed events routed to a dedicated DLQ topic
+- Failure context preserved for debugging and reprocessing
 
----
+### Structured Error Handling
+- Clear exception flow from consumer → service layer
+- Original exceptions preserved and included in DLQ messages
 
-## Retry Mechanism
-
-Implement a retry strategy for transient failures such as:
-
-- temporary database outages
-- downstream service failures
-- network issues
-
-Possible approaches:
-
-- retry topics (`orders-retry`)
-- exponential backoff
-- scheduled retries
+### Config-Driven Behavior
+- Retry limits and system behavior controlled via configuration (TOML)
+- Separation of logic from runtime configuration
 
 ---
 
-## Increased Partitioning
+## 📊 Failure Handling Flow
 
-Currently, the `orders` topic uses a minimal configuration.
+| Scenario              | Behavior                                      |
+|----------------------|-----------------------------------------------|
+| Successful processing | Event processed normally                     |
+| Duplicate event       | Skipped with warning (no failure)            |
+| Transient failure     | Retried with backoff                         |
+| Persistent failure    | Sent to DLQ with error details               |
 
-In production, increasing the number of partitions would allow:
+---
 
-- parallel message processing
-- higher throughput
-- horizontal scaling of consumers
+## 🧠 Design Highlights
 
-Example:
+This project demonstrates several production-grade design decisions:
+
+- Separation of concerns between consumer, validation, and service layers
+- Idempotent processing to ensure safe retries
+- Centralized retry logic with controlled failure handling
+- DLQ strategy for failure isolation and observability
+- Config-driven architecture for flexibility and maintainability
+
+---
+
+## 🔍 Example Use Cases
+
+- High-throughput order processing systems
+- Event-driven microservices architectures
+- Reliable message processing pipelines
+- Systems requiring failure recovery and auditability
+
+---
+
+## ▶️ Running the System
+
 ```bash
-orders topic
-partitions: 6+
+docker-compose up --build
 ```
-Consumers in the same **consumer group** could then process events in parallel.
 
 ---
 
-## Observability and Monitoring
+## 🧪 Testing the API
 
-Add monitoring and tracing to improve system reliability.
+You can test the API using the provided `.http` file or by sending a request:
 
-Potential tools:
+```http
+POST /orders
+Content-Type: application/json
 
-- Prometheus
-- Grafana
-- OpenTelemetry
-- centralized logging (ELK stack)
-
-Key metrics to monitor:
-
-- consumer lag
-- message throughput
-- error rates
-- processing latency
+{
+  "order_id": "12345",
+  "event_id": "abc-123"
+}
+```
 
 ---
 
-## Security
+## 🔮 Future Enhancements
 
-For production environments, the following would be implemented:
-
-- TLS encryption for Kafka communication
-- SASL authentication
-- secrets management
-- encryption of sensitive customer data
-
----
-
-## Idempotent Consumers
-
-To prevent duplicate processing, consumers should implement **idempotency guarantees**.
-
-Approaches include:
-
-- storing processed `order_id`s
-- transactional message processing
-- Kafka exactly-once semantics
+- Full structured logging (JSON logs for observability platforms like Splunk)
+- Metrics and monitoring integration (Prometheus/Grafana)
+- DLQ replay tooling
+- Multi-partition Kafka scaling
+- Integration with cloud-managed Kafka (AWS MSK / Confluent)
 
 ---
 
-# Summary
+## 💡 Key Takeaways
 
-This project demonstrates a basic **event-driven order processing pipeline using Kafka**. While intentionally 
-simple for demonstration purposes, the architecture can be expanded with schema management, retry strategies, 
-monitoring, and security features to support real-world production workloads.
+This project is not just a Kafka demo — it focuses on:
+
+- Designing for failure, not just success
+- Building resilient, production-ready event-driven systems
+- Applying real-world backend architecture patterns used in modern distributed systems  
