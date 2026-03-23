@@ -1,0 +1,44 @@
+@host = http://localhost:5000
+
+POST {{host}}/api/v1/orders
+Content-Type: application/json
+
+{
+  "customer_name": "Andrew Spear",
+  "address": "1234 Main Street, Chicago, IL",
+  "items": [
+    {"product_id": "P100",
+      "quantity": 2
+    }
+  ]
+}
+
+### Duplicate event Test
+POST {{host}}/api/v1/orders
+Content-Type: application/json
+
+{
+  "event_id": "dup-test-123",
+  "customer_name": "Andrew Spear",
+  "address": "1234 Main Street, Chicago, IL",
+  "items": [
+    {"product_id": "P100",
+      "quantity": 2
+    }
+  ]
+}
+### DLQ event Test
+POST {{host}}/api/v1/orders
+Content-Type: application/json
+
+{
+  "event_id": "dlq-test-1",
+  "customer_name": "FAIL_TEST",
+  "address": "1234 Main Street, Chicago, IL",
+  "items": [
+    {"product_id": "P100",
+      "quantity": 2
+    }
+  ]
+}
+###

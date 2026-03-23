@@ -1,0 +1,14 @@
+{
+  "event_id": "string",
+  "event_type": "order.placed",
+  "order_id": "string",
+  "customer_name": "string",
+  "address": "string",
+  "items": [
+    {
+      "product_id": "string",
+      "quantity": "integer"
+    }
+  ],
+  "created_at": "timestamp"
+}

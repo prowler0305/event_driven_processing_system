@@ -1,0 +1,10 @@
+[kafka]
+bootstrap_servers = "kafka:9092"
+orders_topic = "orders"
+dlq_topic = "orders.dlq"
+
+[consumer]
+group_id = "order_processor"
+auto_offset_reset = "earliest"
+poll_timeout_ms = 1000
+max_retries = 3
