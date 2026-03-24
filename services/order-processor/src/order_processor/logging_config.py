@@ -4,10 +4,20 @@ from logging.config import dictConfig
 
 class OrderContextFilter(logging.Filter):
     def filter(self, record):
-        if not hasattr(record, "event_id"):
-            record.event_id = "-"
-        if not hasattr(record, "order_id"):
-            record.order_id = "-"
+        filter_fields = [
+            "order_id",
+            "event_id",
+            "kafka_groups",
+            "kafka_topic",
+            "kafka_offset",
+            "kafka_partition",
+            "retry_count",
+            "error_type",
+            "failure_category"
+        ]
+        for field in filter_fields:
+            if not hasattr(record, field):
+                setattr(record, field, "-")
         return True
 
 def configure_logging():
@@ -24,10 +34,12 @@ def configure_logging():
                 "format": (
                     '{"time": "%(asctime)s", "level": "%(levelname)s", '
                     '"logger": "%(name)s", "lineno": "%(lineno)d", '
-                    '["event": "%(event_id)s", "order": "%(order_id)s"], '
+                    '["event": "%(event_id)s", "order": "%(order_id)s", '
+                    '"group": "%(kafka_group)s", "topic": "%(kafka_topic)s", '
+                    '"partition": "%(kafka_partition)s", "offset": "%(kafka_offset)s"'
+                    '"retry_count": "%(retry_count)d", "error_type": "%(error_type)s", "failure_category": "%(failure_category)s"]}'
                     '"message": "%(message)s"'
-                    # '"group": "%(kafka_group)s", "topic": "%(kafka_topic)s", '
-                    # '"partition": "%(kafka_partition)s", "offset": "%(kafka_offset)s"}'
+
                 )
             }
         },
