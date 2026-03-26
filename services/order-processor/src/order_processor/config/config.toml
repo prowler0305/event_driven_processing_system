@@ -8,3 +8,13 @@ group_id = "order_processor"
 auto_offset_reset = "earliest"
 poll_timeout_ms = 1000
 max_retries = 3
+
+[logging]
+#format = "text" + enable_color = false → plain text
+#format = "text" + enable_color = true → colored text
+#format = "json" + enable_color = false → JSON
+#format = "json" + enable_color = true → colored text
+format = "json"
+# Color overrides selected output format and forces colored text
+enable_color = false
+level = "debug"

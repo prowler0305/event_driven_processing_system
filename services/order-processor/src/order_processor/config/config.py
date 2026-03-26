@@ -40,4 +40,19 @@ class Config:
     def max_retries(self):
         return self._config["consumer"]["max_retries"]
 
+    @property
+    def logging_format(self):
+        return self._config["logging"]["format"].lower()
+
+    @property
+    def logging_enable_color(self):
+        return self._config["logging"]["enable_color"]
+
+    @property
+    def logging_level(self):
+        log_level = self._config["logging"].get("level", "INFO").upper()
+        if log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            raise ValueError(f"Invalid logging level: {log_level}")
+        return log_level
+
 config = Config()

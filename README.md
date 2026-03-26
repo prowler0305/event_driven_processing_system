@@ -41,7 +41,7 @@ flowchart TD
 - Apache Kafka
 - Docker / Docker Compose
 - REST APIs
-- Structured Logging (in progress)
+- Structured Logging
 
 ---
 

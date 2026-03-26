@@ -178,9 +178,9 @@ class Consumer(object):
         """
         log_ctx = dict(
             event_id=event_id,
-            kafka_topic=record.topic,
-            kafka_partition=record.partition,
-            kafka_offset=record.offset,
-            kafka_group=self.group_id
+            topic=record.topic,
+            partition=record.partition,
+            offset=record.offset,
+            group_id=self.group_id
         )
         self.consumer_logger = logging.LoggerAdapter(logger=logger, extra=log_ctx, merge_extra=True)
