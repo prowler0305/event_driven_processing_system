@@ -24,7 +24,6 @@ class Consumer(object):
         self.dlq_topic = config.dlq_topic
         self.topic = config.orders_topic
         self.offset_reset = config.auto_offset_reset
-        self.consumer_logger = logger
         self.max_retries = config.max_retries
 
     def create_consumer(self):
@@ -37,8 +36,9 @@ class Consumer(object):
                                               auto_offset_reset=self.offset_reset,
                                               value_deserializer=lambda v: json.loads(v.decode("utf-8")))
                 logger.info("Consumer created successfully")
-            except KafkaConfigurationError:
+            except KafkaConfigurationError as kafka_configuration_error:
                 logger.exception(f"KafkaConsumer object can't be created due to configuration error")
+                raise kafka_configuration_error
 
     def create_dlq_producer(self):
         """
@@ -60,43 +60,43 @@ class Consumer(object):
             self.create_consumer()
 
         if isinstance(self.consumer, KafkaConsumer):
-            self.consumer_logger.info("Starting consumer...")
+            logger.info("Starting consumer...")
             while True:
                 try:
                     records = self.consumer.poll(timeout_ms=1000)
-                    self.consumer_logger.info("Processing records...")
                     for topic_partition, messages in records.items():
                         for record in messages:
                             order_event = record.value
+                            record_logger = logger
                             try:
                                 validator = OrderEventValidator(order_event)
                                 event_id = validator.event_id
-                                self.set_base_log_adapter(record, event_id)
+                                record_logger = self.build_log_adapter(record, event_id)
                                 if event_id in self.processed_events:
                                     raise DuplicateEventError()
                                 self.process_event_with_retries(order_event)
                                 self.processed_events.add(event_id)
                                 self.consumer.commit()
-                                self.consumer_logger.info("Order committed")
+                                record_logger.info("Order committed")
                             except DuplicateEventError:
-                                self.consumer_logger.info(f"Duplicate event detected: {event_id} - skipping")
+                                record_logger.info(f"Duplicate event detected: {event_id} - skipping")
                                 self.consumer.commit() # Commit this duplicate offset so we don't process forever.
                                 continue
                             except RetryableProcessingError as exc:
                                 self.send_to_dlq(record, exc, failure_category="retryable_exhausted", retry_count=self.max_retries)
                                 self.consumer.commit()
                             except NonRetryableProcessingError as exc:
-                                self.consumer_logger.error("Non-retryable processing failure")
+                                record_logger.error(f"Non-retryable processing failure: {str(exc)}")
                                 self.send_to_dlq(record, exc, failure_category="non_retryable")
                                 self.consumer.commit()
                             except Exception as exc:
-                                self.consumer_logger.exception("Unexpected processing failure")
+                                record_logger.exception("Unexpected processing failure")
                                 # send this to DLQ topic.
                                 self.send_to_dlq(record, exc, failure_category="unexpected")
                                 self.consumer.commit()
 
                 except (KafkaTimeoutError, KafkaConnectionError, NoBrokersAvailable, NodeNotReadyError) as excp:
-                    self.consumer_logger.info(f"Kafka message poll encountered the following exception: {excp}")
+                    logger.error(f"Kafka message poll encountered the following exception: {excp}")
         else:
             raise TypeError("Consumer object is not initialized. Call create_consumer() first")
 
@@ -111,6 +111,7 @@ class Consumer(object):
         :return:
         """
         validator = OrderEventValidator(record.value)
+        record_logger = self.build_log_adapter(record, validator.event_id)
         self.create_dlq_producer()
         error_type = type(error).__name__
         log_ctx = dict(error_type=error_type, retry_count=retry_count, failure_category=failure_category)
@@ -131,13 +132,14 @@ class Consumer(object):
         }
         self.dlq_producer.send(self.dlq_topic, value=dlq_message)
         self.dlq_producer.flush()
-        dlq_logger = logging.LoggerAdapter(logger=self.consumer_logger, extra=log_ctx, merge_extra=True)
+        dlq_logger = logging.LoggerAdapter(logger=record_logger, extra=log_ctx, merge_extra=True)
         dlq_logger.info(f"DLQ message sent to {self.dlq_topic}")
 
-    def process_event_with_retries(self, order_event: dict) -> None:
+    def process_event_with_retries(self, order_event: dict, record_logger: logging.LoggerAdapter) -> None:
         """
         Process an order with setup for retry controls.
         :param order_event:
+        :param record_logger: existing record level base logging adapter.
         :return:
         """
         retry_count = 0
@@ -153,19 +155,19 @@ class Consumer(object):
                 log_ctx["retry_count"] = retry_count
                 if retry_count >= self.max_retries:
                     log_ctx["failure_category"] = "retryable_exhausted"
-                    exhaustion_logger = logging.LoggerAdapter(logger=self.consumer_logger, extra=log_ctx, merge_extra=True)
+                    exhaustion_logger = logging.LoggerAdapter(logger=record_logger, extra=log_ctx, merge_extra=True)
                     exhaustion_logger.error(f"Retry attempts exhausted with failure {str(exc)}; sending to DLQ")
                     raise
                 # Exponential backoff delay
                 delay = 2 ** retry_count
-                retry_logger = logging.LoggerAdapter(logger=self.consumer_logger, extra=log_ctx, merge_extra=True)
+                retry_logger = logging.LoggerAdapter(logger=record_logger, extra=log_ctx, merge_extra=True)
                 retry_logger.warning(f"Retryable failure {str(exc)}, on attempt: {retry_count + 1} Retrying in {delay} seconds")
                 sleep(delay)
                 retry_count += 1
 
-    def set_base_log_adapter(self, record, event_id):
+    def build_log_adapter(self, record, event_id) -> logging.LoggerAdapter:
         """
-        Set the base logging.LogAdapter context by adding:
+        Build a logging.LogAdapter context by adding:
 
         * event_id
         * topic
@@ -183,4 +185,4 @@ class Consumer(object):
             offset=record.offset,
             group_id=self.group_id
         )
-        self.consumer_logger = logging.LoggerAdapter(logger=logger, extra=log_ctx, merge_extra=True)
+        return logging.LoggerAdapter(logger=logger, extra=log_ctx, merge_extra=True)

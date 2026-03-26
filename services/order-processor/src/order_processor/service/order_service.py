@@ -9,8 +9,6 @@ class OrderService(object):
     required_fields = ["order_id", "event_id"]
     def __init__(self, order_event):
         self.order_event = order_event
-        self.log_ctx = None
-        self.order_logger = None
         self.validator = OrderEventValidator(self.order_event)
 
     @property
@@ -20,6 +18,11 @@ class OrderService(object):
     @property
     def order_id(self):
         return self.validator.order_id
+
+    @property
+    def order_logger(self) -> logging.LoggerAdapter:
+        log_ctx = dict(event_id=self.event_id, order_id=self.order_id)
+        return logging.LoggerAdapter(logger, log_ctx)
 
     def process_order(self) -> None:
         """
@@ -39,16 +42,13 @@ class OrderService(object):
         if self.order_event.get("failure_mode") == "non_retryable":
             raise NonRetryableProcessingError("Intentional failure for DLQ test")
 
-        self.log_ctx = dict(event_id=self.event_id, order_id=self.order_id)
-        self.order_logger = logging.LoggerAdapter(logger, self.log_ctx)
-
         # Will change this block to incorporate the custom exceptions once more logic is implemented
         # to
-        self.order_logger.info(f"Processing order")
+        self.order_logger.info("Processing order")
         self.save_order()
         self.charge_payment()
         self.reserve_inventory()
-        self.order_logger.info(f"Order processing successful")
+        self.order_logger.info("Order processing successful")
 
         return
 
