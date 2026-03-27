@@ -74,7 +74,7 @@ class Consumer(object):
                                 record_logger = self.build_log_adapter(record, event_id)
                                 if event_id in self.processed_events:
                                     raise DuplicateEventError()
-                                self.process_event_with_retries(order_event)
+                                self.process_event_with_retries(order_event, record_logger)
                                 self.processed_events.add(event_id)
                                 self.consumer.commit()
                                 record_logger.info("Order committed")
