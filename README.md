@@ -71,6 +71,10 @@ flowchart TD
 - Retry limits and system behavior controlled via configuration (TOML)
 - Separation of logic from runtime configuration
 
+### Structured Logging
+- Full structured logging (JSON logs for observability platforms like Splunk)
+- Configurable logging parameters to control format (plain text, colored text, JSON) and level
+
 ---
 
 ## 📊 Failure Handling Flow
@@ -140,7 +144,6 @@ Content-Type: application/json
 
 ## 🔮 Future Enhancements
 
-- Full structured logging (JSON logs for observability platforms like Splunk)
 - Metrics and monitoring integration (Prometheus/Grafana)
 - DLQ replay tooling
 - Multi-partition Kafka scaling
