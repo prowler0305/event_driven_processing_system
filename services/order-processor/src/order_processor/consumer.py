@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from time import sleep
+from typing import TYPE_CHECKING
 
 from order_processor.config.config import config
 from order_processor.exceptions import DuplicateEventError, RetryableProcessingError, NonRetryableProcessingError
@@ -12,10 +13,14 @@ from kafka.errors import KafkaTimeoutError, KafkaConnectionError, NoBrokersAvail
 
 from order_processor.validation import OrderEventValidator
 
+if TYPE_CHECKING:
+    from order_processor.metrics.collector import MetricCollector
+
+
 logger = logging.getLogger(__name__)
 
 class Consumer(object):
-    def __init__(self):
+    def __init__(self, metrics_collector: "MetricCollector"):
         self.dlq_producer = None
         self.bootstrap_servers = config.kafka_bootstrap_servers
         self.group_id = config.consumer_group
@@ -25,6 +30,7 @@ class Consumer(object):
         self.topic = config.orders_topic
         self.offset_reset = config.auto_offset_reset
         self.max_retries = config.max_retries
+        self.metrics = metrics_collector
 
     def create_consumer(self):
         if self.consumer is None:
@@ -78,22 +84,30 @@ class Consumer(object):
                                 self.processed_events.add(event_id)
                                 self.consumer.commit()
                                 record_logger.info("Order committed")
+                                self.metrics.increment(self.metrics.ORDERS_PROCESSED_SUCCESSFULLY)
                             except DuplicateEventError:
-                                record_logger.info(f"Duplicate event detected: {event_id} - skipping")
+                                record_logger.warning(f"Duplicate event detected: {event_id} - skipping")
                                 self.consumer.commit() # Commit this duplicate offset so we don't process forever.
+                                self.metrics.increment(self.metrics.DUPLICATE_EVENTS_DETECTED)
                                 continue
                             except RetryableProcessingError as exc:
+                                self.metrics.increment(self.metrics.ORDERS_FAILED_RETRYABLE)
                                 self.send_to_dlq(record, exc, failure_category="retryable_exhausted", retry_count=self.max_retries)
                                 self.consumer.commit()
+                                self.metrics.increment(self.metrics.ORDERS_SENT_TO_DLQ)
                             except NonRetryableProcessingError as exc:
                                 record_logger.error(f"Non-retryable processing failure: {str(exc)}")
+                                self.metrics.increment(self.metrics.ORDERS_FAILED_NON_RETRYABLE)
                                 self.send_to_dlq(record, exc, failure_category="non_retryable")
                                 self.consumer.commit()
+                                self.metrics.increment(self.metrics.ORDERS_SENT_TO_DLQ)
                             except Exception as exc:
                                 record_logger.exception("Unexpected processing failure")
+                                self.metrics.increment(self.metrics.ORDERS_FAILED_NON_RETRYABLE)
                                 # send this to DLQ topic.
                                 self.send_to_dlq(record, exc, failure_category="unexpected")
                                 self.consumer.commit()
+                                self.metrics.increment(self.metrics.ORDERS_SENT_TO_DLQ)
 
                 except (KafkaTimeoutError, KafkaConnectionError, NoBrokersAvailable, NodeNotReadyError) as excp:
                     logger.error(f"Kafka message poll encountered the following exception: {excp}")
@@ -154,10 +168,12 @@ class Consumer(object):
                 log_ctx["error_type"] = type(exc).__name__
                 log_ctx["retry_count"] = retry_count
                 if retry_count >= self.max_retries:
+                    self.metrics.increment(self.metrics.RETRY_EXHAUSTED_TOTAL)
                     log_ctx["failure_category"] = "retryable_exhausted"
                     exhaustion_logger = logging.LoggerAdapter(logger=record_logger, extra=log_ctx, merge_extra=True)
                     exhaustion_logger.error(f"Retry attempts exhausted with failure {str(exc)}; sending to DLQ")
                     raise
+                self.metrics.increment(self.metrics.RETRY_ATTEMPTS_TOTAL)
                 # Exponential backoff delay
                 delay = 2 ** retry_count
                 retry_logger = logging.LoggerAdapter(logger=record_logger, extra=log_ctx, merge_extra=True)
