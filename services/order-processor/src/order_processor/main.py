@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     try:
         logger.info("Starting order processor...")
-        consumer = Consumer(metrics_collector_obj=MetricCollector())
+        consumer = Consumer(metrics_collector=MetricCollector())
         consumer.start()
     except Exception:
         logger.exception("Order processor crashed with exception:")
