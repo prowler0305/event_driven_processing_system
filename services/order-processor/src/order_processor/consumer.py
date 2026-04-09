@@ -30,10 +30,16 @@ class Consumer(object):
         self.topic = config.orders_topic
         self.offset_reset = config.auto_offset_reset
         self.max_retries = config.max_retries
+        self.connection_retries = config.connection_retries
+        self.connection_wait = config.connection_wait
         self.metrics = metrics_collector
 
     def create_consumer(self):
-        if self.consumer is None:
+
+        if self.consumer is not None:
+            return
+
+        for attempt in range(1, self.connection_retries + 1):
             try:
                 self.consumer = KafkaConsumer(self.topic,
                                               bootstrap_servers=self.bootstrap_servers,
@@ -42,9 +48,18 @@ class Consumer(object):
                                               auto_offset_reset=self.offset_reset,
                                               value_deserializer=lambda v: json.loads(v.decode("utf-8")))
                 logger.info("Consumer created successfully")
-            except KafkaConfigurationError as kafka_configuration_error:
+                return
+            except KafkaConfigurationError:
                 logger.exception(f"KafkaConsumer object can't be created due to configuration error")
-                raise kafka_configuration_error
+                raise
+            except NoBrokersAvailable:
+                if attempt == self.connection_retries:
+                    logger.error(f"Connection attempt #{attempt} failed. Maximum broker connection attempts reached.")
+                    raise
+
+                logger.warning(f"Connection attempt #{attempt} failed to connect to Kafka. "
+                               f"Waiting for {self.connection_wait} seconds before trying again.")
+                sleep(self.connection_wait)
 
     def create_dlq_producer(self):
         """
