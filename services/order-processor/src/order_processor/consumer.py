@@ -5,8 +5,7 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 from order_processor.config.config import config
-from order_processor.exceptions import DuplicateEventError, RetryableProcessingError, NonRetryableProcessingError, \
-    MaxBrokerConnectionsReached
+from order_processor.exceptions import DuplicateEventError, RetryableProcessingError, NonRetryableProcessingError
 from order_processor.service.order_service import OrderService
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import KafkaTimeoutError, KafkaConnectionError, NoBrokersAvailable, NodeNotReadyError, \
