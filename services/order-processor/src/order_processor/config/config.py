@@ -41,6 +41,14 @@ class Config:
         return self._config["consumer"]["max_retries"]
 
     @property
+    def connection_retries(self):
+        return self._config["consumer"].get("connection_retries", 10)
+
+    @property
+    def connection_wait(self):
+        return self._config["consumer"].get("connection_wait", 3)
+
+    @property
     def logging_format(self):
         return self._config["logging"]["format"].lower()
 
