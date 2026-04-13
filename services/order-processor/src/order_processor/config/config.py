@@ -5,6 +5,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class Config:
+    VALID_LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
     def __init__(self, config_path: str | None = None):
         if config_path is None:
             config_path = Path(__file__).parent / "config.toml"
@@ -59,8 +60,15 @@ class Config:
     @property
     def logging_level(self):
         log_level = self._config["logging"].get("level", "INFO").upper()
-        if log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-            raise ValueError(f"Invalid logging level: {log_level}")
+        if log_level not in Config.VALID_LOG_LEVELS:
+            raise ValueError(f"Invalid logging level: {log_level}. Must be one of {Config.VALID_LOG_LEVELS}")
+        return log_level
+
+    @property
+    def kafka_logging_level(self):
+        log_level = self._config["logging"].get("kafka_log_level", "WARNING").upper()
+        if log_level not in Config.VALID_LOG_LEVELS:
+            raise ValueError(f"Invalid logging level for kafka_log_level setting: {log_level}. Must be one of {Config.VALID_LOG_LEVELS}")
         return log_level
 
 config = Config()

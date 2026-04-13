@@ -67,6 +67,11 @@ def configure_logging():
                 "handlers": ["console"],
                 "level": config.logging_level,
                 "propagate": True
+            },
+            "kafka": {
+                "level": config.kafka_logging_level,
+                "handlers": ["console"],
+                "propagate": False
             }
         }
     }
