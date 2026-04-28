@@ -2,7 +2,7 @@ import os
 
 
 class Config:
-    KAFKA_BROKER = os.environ.get("KAFKA_BROKER", "kafka:9092")
+    KAFKA_BROKER = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
     KAFKA_TOPIC = os.environ.get("KAFKA_TOPIC", "orders")
     FLASK_ENV = os.environ.get("FLASK_ENV", "production")
     KAFKA_ENABLED = os.environ.get("KAFKA_ENABLED", True)

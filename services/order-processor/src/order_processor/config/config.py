@@ -1,3 +1,4 @@
+import os
 import logging
 import tomllib
 from pathlib import Path
@@ -15,7 +16,7 @@ class Config:
 
     @property
     def kafka_bootstrap_servers(self):
-        return self._config["kafka"]["bootstrap_servers"]
+        return os.getenv("KAFKA_BOOTSTRAP_SERVERS", self._config["kafka"]["bootstrap_servers"])
 
     @property
     def orders_topic(self):
