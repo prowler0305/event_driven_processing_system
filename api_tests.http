@@ -39,6 +39,7 @@ Content-Type: application/json
     {"product_id": "P100",
       "quantity": 2
     }
-  ]
+  ],
+  "failure_mode": "non_retryable"
 }
 ###
